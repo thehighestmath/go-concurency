@@ -2,6 +2,7 @@ package task9
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -23,22 +24,30 @@ func NewRateLimiter(rate int, burst int) *RateLimiter {
 	for i := 0; i < burst; i++ {
 		tokens <- struct{}{}
 	}
+
+	rl := &RateLimiter{
+		tokens: tokens,
+		ticker: nil,
+	}
+	rl.startRefill(rate)
+	return rl
+}
+
+func (rl *RateLimiter) startRefill(rate int) {
 	var ticker *time.Ticker
 	if rate != 0 {
 		ticker = time.NewTicker(time.Second * 1 / time.Duration(rate))
 	}
+	rl.ticker = ticker
 	go func() {
-		if ticker == nil {
+		if rl.ticker == nil {
 			return
 		}
-		for range ticker.C {
-			tokens <- struct{}{}
+		for range rl.ticker.C {
+			rl.tokens <- struct{}{}
+			fmt.Println("add token")
 		}
 	}()
-	return &RateLimiter{
-		tokens: tokens,
-		ticker: ticker,
-	}
 }
 
 // Allow проверяет, можно ли выполнить запрос
