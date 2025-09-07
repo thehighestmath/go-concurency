@@ -46,13 +46,13 @@ func (wp *WorkerPool) Start() {
 	wp.wg.Add(wp.workerCount)
 	for i := 0; i < wp.workerCount; i++ {
 		go func() {
+			defer wp.wg.Done()
 			for task := range wp.tasksChannel {
 				wp.resultChannel <- Result{
 					TaskID: task.ID,
 					Output: task.Data,
 				}
 			}
-			wp.wg.Done()
 		}()
 	}
 	// Запустите numWorkers горутин-воркеров
@@ -60,7 +60,9 @@ func (wp *WorkerPool) Start() {
 
 // SubmitTask отправляет задачу в пул
 func (wp *WorkerPool) SubmitTask(task Task) {
-	wp.tasksChannel <- task
+	go func() {
+		wp.tasksChannel <- task
+	}()
 }
 
 // GetResult возвращает результат обработки
