@@ -1,0 +1,36 @@
+package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("Go Concurrency Tasks")
+	fmt.Println("===================")
+	fmt.Println("This project contains 22 concurrency tasks to solve.")
+	fmt.Println("Run 'make test' to see which tasks are implemented.")
+	fmt.Println("")
+	fmt.Println("Available tasks:")
+	fmt.Println("1.  Goroutines Basics")
+	fmt.Println("2.  Channels Communication")
+	fmt.Println("3.  Mutex Synchronization")
+	fmt.Println("4.  Select Statement")
+	fmt.Println("5.  Worker Pool Pattern")
+	fmt.Println("6.  Fan-out Fan-in Pattern")
+	fmt.Println("7.  Context Cancellation")
+	fmt.Println("8.  Pipeline Pattern")
+	fmt.Println("9.  Rate Limiter")
+	fmt.Println("10. Barrier Synchronization")
+	fmt.Println("11. Semaphore")
+	fmt.Println("12. Race Condition Fix")
+	fmt.Println("13. Circuit Breaker")
+	fmt.Println("14. Bulkhead Pattern")
+	fmt.Println("15. Retry Pattern")
+	fmt.Println("16. Timeout Pattern")
+	fmt.Println("17. Broadcast Pattern")
+	fmt.Println("18. Priority Queue")
+	fmt.Println("19. Concurrent Cache")
+	fmt.Println("20. Actor Model")
+	fmt.Println("21. Event Sourcing")
+	fmt.Println("22. Stream Processing")
+	fmt.Println("")
+	fmt.Println("See README.md for detailed instructions.")
+}
