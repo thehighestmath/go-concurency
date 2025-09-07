@@ -166,3 +166,122 @@ func TestRateLimiterConcurrent(t *testing.T) {
 	rl.Stop()
 }
 
+func TestRateLimiter_RefillDoesNotExceedBurst(t *testing.T) {
+	rl := NewRateLimiter(10, 3)
+	time.Sleep(500 * time.Millisecond)
+
+	// Израсходуем все токены (burst)
+	for i := 0; i < 3; i++ {
+		if !rl.Allow() {
+			t.Errorf("Request %d should be allowed", i+1)
+		}
+	}
+
+	// Подождём 500мс (рефил токенов)
+	time.Sleep(500 * time.Millisecond)
+
+	// Проверим, что не больше burst
+	count := 0
+	for i := 0; i < 10; i++ {
+		if rl.Allow() {
+			count++
+		}
+	}
+	if count > 3 {
+		t.Errorf("Token bucket refilled over burst: got %d tokens", count)
+	}
+	rl.Stop()
+}
+
+func TestRateLimiter_StopPreventsFurtherUse(t *testing.T) {
+	rl := NewRateLimiter(1, 1)
+
+	if !rl.Allow() {
+		t.Error("Should allow before stop")
+	}
+	rl.Stop()
+
+	defer func() {
+		_ = recover() // must not panic
+	}()
+	_ = rl.Allow() // не должно паниковать
+}
+
+func TestRateLimiter_WaitContextCancel(t *testing.T) {
+	rl := NewRateLimiter(1, 1)
+	_ = rl.Allow() // используем burst
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	start := time.Now()
+	err := rl.Wait(ctx)
+	elapsed := time.Since(start)
+	if err != context.Canceled {
+		t.Errorf("Expected context.Canceled, got %v", err)
+	}
+	if elapsed > 50*time.Millisecond {
+		t.Errorf("Wait should return immediately if context canceled, took %v", elapsed)
+	}
+	rl.Stop()
+}
+
+func TestRateLimiter_ParallelWaits(t *testing.T) {
+	rl := NewRateLimiter(5, 1) // 5 в сек, burst 1
+	_ = rl.Allow()             // потратим burst
+
+	ctx1, cancel1 := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel1()
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel2()
+
+	done := make(chan error, 2)
+	go func() {
+		done <- rl.Wait(ctx1)
+	}()
+	go func() {
+		done <- rl.Wait(ctx2)
+	}()
+
+	timeout := time.After(1200 * time.Millisecond)
+	result := 0
+	for result < 2 {
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("Parallel Wait got error: %v", err)
+			}
+			result++
+		case <-timeout:
+			t.Error("Timeout waiting for parallel waits")
+			return
+		}
+	}
+	rl.Stop()
+}
+
+func TestRateLimiter_LongBurstDepletionAndRefill(t *testing.T) {
+	rl := NewRateLimiter(4, 4) // burst = 4, 4 req/sec
+
+	// Израсходуем burst
+	for i := 0; i < 4; i++ {
+		if !rl.Allow() {
+			t.Errorf("Burst request %d should be allowed", i+1)
+		}
+	}
+	// Проверить, что дальше не пускает
+	if rl.Allow() {
+		t.Error("Next request after burst should not be allowed")
+	}
+
+	// Ждем через 300мс, ждем новый токен
+	time.Sleep(300 * time.Millisecond)
+	if !rl.Allow() {
+		t.Error("Should allow after partial refill")
+	}
+
+	// Проверить, что снова не пускает: refill по одному
+	if rl.Allow() {
+		t.Error("Should deny until next refill")
+	}
+	rl.Stop()
+}
