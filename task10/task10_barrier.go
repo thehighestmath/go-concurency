@@ -46,29 +46,4 @@ func (b *Barrier) Wait() {
 		b.cond.Broadcast()
 		b.waitCount = 0
 	}
-	// TODO: Реализуйте метод
-	// 1. Заблокируйте mutex
-	// 2. Увеличьте счетчик ожидающих
-	// 3. Если не все горутины пришли - ждите на cond
-	// 4. Если все пришли - разбудите всех и сбросьте счетчик
-	// 5. Разблокируйте mutex
-}
-
-// BarrierExample демонстрирует использование barrier
-func BarrierExample(numGoroutines int) []int {
-	b := NewBarrier(numGoroutines)
-	for i := 0; i < numGoroutines; i++ {
-		go func() {
-			time.Sleep(time.Duration(100*rand.Float64()) * time.Millisecond)
-			b.Wait()
-			time.Sleep(time.Duration(100*rand.Float64()) * time.Millisecond)
-		}()
-	}
-
-	out := make([]int, numGoroutines)
-	for i := range out {
-		out[i] = 1
-	}
-
-	return out
 }

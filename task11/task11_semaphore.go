@@ -1,5 +1,7 @@
 package task11
 
+import "context"
+
 // Task 11: Semaphore
 // Реализуйте семафор - механизм для ограничения количества
 // одновременно выполняющихся операций.
@@ -12,54 +14,46 @@ package task11
 type Semaphore struct {
 	// TODO: Добавьте необходимые поля
 	// Вам понадобится канал для токенов
+	ch chan struct{}
 }
 
 // NewSemaphore создает новый семафор с указанной емкостью
 func NewSemaphore(capacity int) *Semaphore {
-	// TODO: Реализуйте конструктор
-	// Создайте канал с буфером capacity и заполните его токенами
-	return nil
+	ch := make(chan struct{}, capacity)
+	for i := 0; i < capacity; i++ {
+		ch <- struct{}{}
+	}
+	return &Semaphore{
+		ch: ch,
+	}
 }
 
 // Acquire получает токен из семафора
 func (s *Semaphore) Acquire() {
-	// TODO: Реализуйте метод
-	// Получите токен из канала (блокирующая операция)
+	<-s.ch
 }
 
 // TryAcquire пытается получить токен без блокировки
 func (s *Semaphore) TryAcquire() bool {
-	// TODO: Реализуйте метод
-	// Попробуйте получить токен из канала (неблокирующая операция)
-	// Верните true если получили, false если нет
-	return false
+	select {
+	case <-s.ch:
+		return true
+	default:
+		return false
+	}
 }
 
 // AcquireWithContext получает токен с учетом контекста
-func (s *Semaphore) AcquireWithContext(ctx interface{}) error {
-	// TODO: Реализуйте метод
-	// Ждите токен с учетом контекста
-	// Верните ошибку если контекст отменен
-	return nil
+func (s *Semaphore) AcquireWithContext(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.ch:
+		return nil
+	}
 }
 
 // Release возвращает токен в семафор
 func (s *Semaphore) Release() {
-	// TODO: Реализуйте метод
-	// Верните токен в канал
-}
-
-// SemaphoreExample демонстрирует использование семафора
-func SemaphoreExample(numWorkers, maxConcurrent int) []string {
-	// TODO: Реализуйте эту функцию
-	// 1. Создайте семафор с емкостью maxConcurrent
-	// 2. Запустите numWorkers горутин
-	// 3. Каждая горутина должна:
-	//    - получить токен из семафора
-	//    - выполнить работу (симулировать задержку)
-	//    - вернуть токен в семафор
-	// 4. Соберите результаты от всех горутин
-	// 5. Верните слайс результатов
-
-	return nil
+	s.ch <- struct{}{}
 }

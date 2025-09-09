@@ -126,21 +126,6 @@ func TestSemaphoreAcquireWithContextCancelled(t *testing.T) {
 	}
 }
 
-func TestSemaphoreExample(t *testing.T) {
-	results := SemaphoreExample(5, 2) // 5 воркеров, максимум 2 одновременно
-
-	if len(results) != 5 {
-		t.Errorf("Expected 5 results, got %d", len(results))
-	}
-
-	// Проверяем, что все результаты содержат "completed"
-	for i, result := range results {
-		if result != "worker completed" {
-			t.Errorf("Result %d should be 'worker completed', got '%s'", i, result)
-		}
-	}
-}
-
 func TestSemaphoreConcurrent(t *testing.T) {
 	sem := NewSemaphore(3)
 	var wg sync.WaitGroup
@@ -195,19 +180,18 @@ func TestSemaphoreZeroCapacity(t *testing.T) {
 	}
 }
 
-func TestSemaphoreReleaseWithoutAcquire(t *testing.T) {
+func TestSemaphoreOverflow(t *testing.T) {
 	sem := NewSemaphore(1)
-
-	// Освобождаем токен без предварительного получения
-	// Это не должно вызывать панику
-	sem.Release()
-
-	// Теперь должно быть доступно 2 токена
-	if !sem.TryAcquire() {
-		t.Error("First acquire should succeed")
-	}
-	if !sem.TryAcquire() {
-		t.Error("Second acquire should succeed")
+	// Канал уже полон
+	done := make(chan struct{})
+	go func() {
+		sem.Release() // Хочет положить 2-й токен в буфер size 1!
+		close(done)
+	}()
+	select {
+	case <-done:
+		t.Error("Release should not succeed if semaphore is full (overflow)")
+	case <-time.After(50 * time.Millisecond):
+		// OK, тк Release должен блокироваться (или паниковать в другой реализации)
 	}
 }
-

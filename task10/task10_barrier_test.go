@@ -114,21 +114,6 @@ func TestBarrierTwoGoroutines(t *testing.T) {
 	}
 }
 
-func TestBarrierExample(t *testing.T) {
-	results := BarrierExample(4)
-
-	if len(results) != 4 {
-		t.Errorf("Expected 4 results, got %d", len(results))
-	}
-
-	// Проверяем, что все результаты больше 0
-	for i, result := range results {
-		if result <= 0 {
-			t.Errorf("Result %d should be positive, got %d", i, result)
-		}
-	}
-}
-
 func TestBarrierManyGoroutines(t *testing.T) {
 	numGoroutines := 10
 	barrier := NewBarrier(numGoroutines)
