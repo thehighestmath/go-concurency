@@ -28,12 +28,13 @@ type CircuitBreaker struct {
 	// - настройки (threshold, timeout, etc.)
 	// - mutex для синхронизации
 	// - время последнего сбоя
-	Config       CircuitBreakerConfig
-	State        CircuitState
-	SuccessCount int
-	FailureCount int
-	Mu           sync.Mutex
-	LastTime     time.Time
+	Config            CircuitBreakerConfig
+	State             CircuitState
+	SuccessCount      int
+	FailureCount      int
+	TotalFailureCount int
+	Mu                sync.Mutex
+	LastTime          time.Time
 }
 
 // CircuitBreakerConfig содержит настройки circuit breaker
@@ -48,23 +49,18 @@ type CircuitBreakerConfig struct {
 func NewCircuitBreaker(config CircuitBreakerConfig) *CircuitBreaker {
 	// TODO: Реализуйте конструктор
 	return &CircuitBreaker{
-		Config:       config,
-		State:        StateClosed,
-		SuccessCount: 0,
-		FailureCount: 0,
-		Mu:           sync.Mutex{},
-		LastTime:     time.Time{},
+		Config:            config,
+		State:             StateClosed,
+		SuccessCount:      0,
+		FailureCount:      0,
+		TotalFailureCount: 0,
+		Mu:                sync.Mutex{},
+		LastTime:          time.Time{},
 	}
 }
 
 // Execute выполняет функцию через circuit breaker
 func (cb *CircuitBreaker) Execute(fn func() (any, error)) (any, error) {
-	// TODO: Реализуйте метод
-	// 1. Проверьте текущее состояние
-	// 2. Если Open - верните ошибку
-	// 3. Если Half-Open - проверьте лимит запросов
-	// 4. Выполните функцию
-	// 5. Обновите счетчики и состояние
 	cb.GetState()
 	if cb.State == StateOpen {
 		return nil, fmt.Errorf("qwe")
@@ -73,7 +69,12 @@ func (cb *CircuitBreaker) Execute(fn func() (any, error)) (any, error) {
 	res, err := fn()
 
 	if err != nil {
+		cb.LastTime = time.Now()
+		cb.TotalFailureCount++
 		cb.FailureCount++
+		if cb.State == StateHalfOpen {
+			cb.State = StateOpen
+		}
 	} else {
 		cb.FailureCount = 0
 		cb.SuccessCount++
@@ -83,8 +84,8 @@ func (cb *CircuitBreaker) Execute(fn func() (any, error)) (any, error) {
 	}
 	if cb.FailureCount == cb.Config.FailureThreshold {
 		cb.State = StateOpen
-		cb.LastTime = time.Now()
 	}
+
 	return res, err
 }
 
@@ -99,11 +100,9 @@ func (cb *CircuitBreaker) GetState() CircuitState {
 
 // GetStats возвращает статистику circuit breaker
 func (cb *CircuitBreaker) GetStats() map[string]int {
-	// TODO: Реализуйте метод
-	// Верните map с ключами: "success", "failure", "total"
 	return map[string]int{
-		"success": 1,
-		"failure": 1,
-		"total":   2,
+		"success": cb.SuccessCount,
+		"failure": cb.TotalFailureCount,
+		"total":   cb.TotalFailureCount + cb.SuccessCount,
 	}
 }
