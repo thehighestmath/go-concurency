@@ -2,7 +2,7 @@ package task9
 
 import (
 	"context"
-	"fmt"
+	"sync"
 	"time"
 )
 
@@ -12,7 +12,9 @@ import (
 
 // RateLimiter ограничивает количество запросов
 type RateLimiter struct {
-	tokens chan struct{}
+	tokens int
+	burst  int
+	mu     sync.Mutex
 	ticker *time.Ticker
 }
 
@@ -20,13 +22,10 @@ type RateLimiter struct {
 // rate - количество запросов в секунду
 // burst - максимальное количество токенов
 func NewRateLimiter(rate int, burst int) *RateLimiter {
-	tokens := make(chan struct{}, burst)
-	for i := 0; i < burst; i++ {
-		tokens <- struct{}{}
-	}
-
 	rl := &RateLimiter{
-		tokens: tokens,
+		tokens: burst,
+		burst:  burst,
+		mu:     sync.Mutex{},
 		ticker: nil,
 	}
 	rl.startRefill(rate)
@@ -44,31 +43,49 @@ func (rl *RateLimiter) startRefill(rate int) {
 			return
 		}
 		for range rl.ticker.C {
-			rl.tokens <- struct{}{}
-			fmt.Println("add token")
+			rl.mu.Lock()
+			rl.tokens++
+			if rl.tokens > rl.burst {
+				rl.tokens = rl.burst
+			}
+			rl.mu.Unlock()
 		}
 	}()
 }
 
 // Allow проверяет, можно ли выполнить запрос
 func (rl *RateLimiter) Allow() bool {
-	select {
-	case <-rl.tokens:
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	if rl.tokens > 0 {
+		rl.tokens--
 		return true
-	default:
-		return false
 	}
+
+	return false
 }
 
 // Wait ждет, пока не станет доступен токен
 func (rl *RateLimiter) Wait(ctx context.Context) error {
+	ch := make(chan bool)
+	go func() {
+		for {
+			rl.mu.Lock()
+			if rl.tokens > 0 {
+				ch <- true
+				rl.mu.Unlock()
+				break
+			}
+			rl.mu.Unlock()
+		}
+	}()
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-rl.tokens:
+	case <-ch:
 		return nil
 	}
-
 }
 
 // Stop останавливает rate limiter
@@ -76,5 +93,4 @@ func (rl *RateLimiter) Stop() {
 	if rl.ticker != nil {
 		rl.ticker.Stop()
 	}
-	close(rl.tokens)
 }
