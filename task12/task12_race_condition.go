@@ -3,8 +3,6 @@ package task12
 import "sync"
 
 // Task 12: Race Condition Fix
-// В этом коде есть race condition. Найдите и исправьте его,
-// используя подходящие механизмы синхронизации.
 
 // BankAccount представляет банковский счет
 type BankAccount struct {

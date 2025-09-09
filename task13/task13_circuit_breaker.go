@@ -1,13 +1,14 @@
 package task13
 
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
 // Task 13: Circuit Breaker Pattern
 // Реализуйте паттерн Circuit Breaker для защиты от каскадных сбоев.
 // Circuit Breaker должен переключаться между состояниями: Closed, Open, Half-Open.
-
-// "context"
-// "fmt"
-// "sync"
-// "time"
 
 // CircuitState представляет состояние circuit breaker
 type CircuitState int
@@ -27,8 +28,12 @@ type CircuitBreaker struct {
 	// - настройки (threshold, timeout, etc.)
 	// - mutex для синхронизации
 	// - время последнего сбоя
-	Config CircuitBreakerConfig
-	State  CircuitState
+	Config       CircuitBreakerConfig
+	State        CircuitState
+	SuccessCount int
+	FailureCount int
+	Mu           sync.Mutex
+	LastTime     time.Time
 }
 
 // CircuitBreakerConfig содержит настройки circuit breaker
@@ -43,8 +48,12 @@ type CircuitBreakerConfig struct {
 func NewCircuitBreaker(config CircuitBreakerConfig) *CircuitBreaker {
 	// TODO: Реализуйте конструктор
 	return &CircuitBreaker{
-		Config: config,
-		State:  StateClosed,
+		Config:       config,
+		State:        StateClosed,
+		SuccessCount: 0,
+		FailureCount: 0,
+		Mu:           sync.Mutex{},
+		LastTime:     time.Time{},
 	}
 }
 
@@ -56,12 +65,35 @@ func (cb *CircuitBreaker) Execute(fn func() (any, error)) (any, error) {
 	// 3. Если Half-Open - проверьте лимит запросов
 	// 4. Выполните функцию
 	// 5. Обновите счетчики и состояние
-	return nil, nil
+	cb.GetState()
+	if cb.State == StateOpen {
+		return nil, fmt.Errorf("qwe")
+	}
+
+	res, err := fn()
+
+	if err != nil {
+		cb.FailureCount++
+	} else {
+		cb.FailureCount = 0
+		cb.SuccessCount++
+		if cb.State == StateHalfOpen {
+			cb.State = StateClosed
+		}
+	}
+	if cb.FailureCount == cb.Config.FailureThreshold {
+		cb.State = StateOpen
+		cb.LastTime = time.Now()
+	}
+	return res, err
 }
 
 // GetState возвращает текущее состояние circuit breaker
 func (cb *CircuitBreaker) GetState() CircuitState {
-	// TODO: Реализуйте метод
+	timePassed := cb.LastTime.Add(time.Duration(cb.Config.Timeout) * time.Millisecond)
+	if cb.State == StateOpen && time.Now().After(timePassed) {
+		cb.State = StateHalfOpen
+	}
 	return cb.State
 }
 
@@ -70,8 +102,8 @@ func (cb *CircuitBreaker) GetStats() map[string]int {
 	// TODO: Реализуйте метод
 	// Верните map с ключами: "success", "failure", "total"
 	return map[string]int{
-		"success": 0,
-		"failure": 0,
-		"total":   0,
+		"success": 1,
+		"failure": 1,
+		"total":   2,
 	}
 }
