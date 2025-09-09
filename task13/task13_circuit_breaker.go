@@ -69,6 +69,9 @@ func (cb *CircuitBreaker) GetState() CircuitState {
 func (cb *CircuitBreaker) GetStats() map[string]int {
 	// TODO: Реализуйте метод
 	// Верните map с ключами: "success", "failure", "total"
-	return nil
+	return map[string]int{
+		"success": 0,
+		"failure": 0,
+		"total":   0,
+	}
 }
-
