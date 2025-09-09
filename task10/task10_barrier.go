@@ -1,9 +1,7 @@
 package task10
 
 import (
-	"math/rand"
 	"sync"
-	"time"
 )
 
 // Task 10: Barrier Synchronization
