@@ -6,14 +6,10 @@ import "sync"
 // В этом коде есть race condition. Найдите и исправьте его,
 // используя подходящие механизмы синхронизации.
 
-// "fmt"
-// "sync"
-
 // BankAccount представляет банковский счет
 type BankAccount struct {
 	balance int
 	mu      sync.Mutex
-	// TODO: Добавьте необходимые поля для синхронизации
 }
 
 // NewBankAccount создает новый банковский счет
@@ -52,11 +48,6 @@ func (ba *BankAccount) GetBalance() int {
 
 // Transfer переводит деньги с одного счета на другой
 func Transfer(from, to *BankAccount, amount int) bool {
-	// TODO: Исправьте race condition
-	// Реализуйте безопасный перевод денег
-	// Учтите возможность deadlock при переводе между счетами
-	// Используйте правильный порядок блокировки мьютексов
-
 	if from.Withdraw(amount) {
 		to.Deposit(amount)
 		return true
