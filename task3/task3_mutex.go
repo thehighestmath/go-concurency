@@ -54,5 +54,7 @@ func (c *SafeCounter) Decrement() {
 }
 
 func (c *SafeCounter) GetValue() int {
+	c.m.Lock()
+	defer c.m.Unlock()
 	return c.v
 }

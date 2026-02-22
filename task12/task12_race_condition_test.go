@@ -3,6 +3,7 @@ package task12
 import (
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestBankAccountBasic(t *testing.T) {
@@ -214,3 +215,92 @@ func TestBankAccountZeroAmount(t *testing.T) {
 	}
 }
 
+func TestTransferRaceAndDeadlock(t *testing.T) {
+	a := NewBankAccount(1000)
+	b := NewBankAccount(1000)
+	var wg sync.WaitGroup
+
+	transfer := func(from, to *BankAccount, amount int) {
+		defer wg.Done()
+		ok := Transfer(from, to, amount)
+		if !ok {
+			t.Errorf("Transfer failed: from %v to %v amount %d", from, to, amount)
+		}
+	}
+
+	// Запускаем несколько конкурентных переводов между двумя счетами (и туда, и обратно)
+	numTransfers := 100
+	for i := 0; i < numTransfers; i++ {
+		wg.Add(2)
+		go transfer(a, b, 1)
+		go transfer(b, a, 1)
+	}
+
+	// Для проверки дедлока: тест должен завершаться за разумное время
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// OK
+	case <-time.After(5 * time.Second):
+		t.Fatal("Test is potentially deadlocked or too slow")
+	}
+
+	total := a.GetBalance() + b.GetBalance()
+	if total != 2000 {
+		t.Errorf("Total balance mismatch: got %d, want %d", total, 2000)
+	}
+}
+
+func TestTransferNotAtomic(t *testing.T) {
+	a := NewBankAccount(100)
+	b := NewBankAccount(100)
+	var wg sync.WaitGroup
+
+	// Две одновременных попытки снять весь баланс со счета `a` на счет `b`
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		Transfer(a, b, 100)
+	}()
+	go func() {
+		defer wg.Done()
+		Transfer(a, b, 100)
+	}()
+	wg.Wait()
+
+	balanceA := a.GetBalance()
+	balanceB := b.GetBalance()
+
+	if balanceA < 0 {
+		t.Fatalf("Некорректный баланс: счёт ушел в минус (%d)! Ожидается неотрицательный остаток.", balanceA)
+	}
+	if balanceA+balanceB != 200 {
+		t.Fatalf("Сумма всех денег должна быть 200, а не %d (a=%d, b=%d)", balanceA+balanceB, balanceA, balanceB)
+	}
+}
+
+func TestTransferToSelf(t *testing.T) {
+	acct := NewBankAccount(100)
+
+	success := Transfer(acct, acct, 30)
+	if !success {
+		t.Fatalf("Transfer to self should succeed when enough funds")
+	}
+
+	want := 100 // баланс не должен меняться, фактически
+	got := acct.GetBalance()
+	if got != want {
+		t.Errorf("Expected balance %d after self-transfer, got %d", want, got)
+	}
+
+	// Пробуем перевести больше, чем на счете
+	failed := Transfer(acct, acct, 200)
+	if failed {
+		t.Fatalf("Transfer to self with insufficient funds should fail")
+	}
+}
